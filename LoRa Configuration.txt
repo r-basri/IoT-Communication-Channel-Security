@@ -18,7 +18,7 @@
 #define TEMP_SENSOR_PIN 5        // Temperature sensor pin (generalized)
 #define TDS_SENSOR_PIN A1        // TDS sensor pin (generalized)
 #define BAUD_RATE 115200         // Serial communication baud rate
-#define LORA_SLEEP_TIME 120000   // 2 minutes of sleep
+#define LORA_SLEEP_TIME 50       // 50 milliseconds of sleep
 
 // LoRaWAN Credentials (Replace with actual values)
 String devEui = "PUT_YOUR_DEV_EUI"; // Device EUI 
@@ -115,7 +115,7 @@ void setup() {
   }
 
   // Initialize LoRa modem
-  if (!modem.begin(AS923)) {
+  if (!modem.begin(AS915)) {
     Serial.println("Failed to initialize LoRa module");
     while (1);
   }
@@ -123,12 +123,12 @@ void setup() {
 
   // Configure LoRa settings
   modem.setADR(false);
-  modem.dataRate(5);           // DR 5
+  modem.dataRate(3);           // DR 3
   modem.spreadingFactor(9);    // SF 9
 
   // Join LoRaWAN network
   while (!joinLoRaWAN()) {
-    delay(5000); // Retry every 5 seconds
+    delay(2000); // Retry every 2 seconds
   }
 }
 
@@ -145,6 +145,6 @@ void loop() {
   // Send payload via LoRaWAN
   sendLoRaData(payload);
 
-  // Sleep for 2 minutes
+  // Sleep for 50 milliseconds
   delay(LORA_SLEEP_TIME);
 }
