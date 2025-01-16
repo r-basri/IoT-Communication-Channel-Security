@@ -1,0 +1,112 @@
+# Code by Rabeya Basri (2024)
+# Estimating E2E delay using Kalman Filter and LSTM
+# Calculating communication trust using Z-score based on observed and estimated delays
+# GitHub: [https://github.com/r-basri/IoT-Communication-Channel-Security/tree/main?tab=readme-ov-file#iot-communication-channel-security]
+
+import pandas as pd
+import numpy as np
+import time
+from scipy.integrate import quad
+from pykalman import KalmanFilter
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_squared_error
+
+# Load your CSV data into a pandas DataFrame
+file_path = 'e2e_delay_data.csv'  # Replace with your CSV file path
+df = pd.read_csv(file_path)
+
+# Convert columns to numeric if necessary
+df['observed_delay'] = pd.to_numeric(df['observed_delay'], errors='coerce')
+df['Expected_delay'] = pd.to_numeric(df['Expected_delay'], errors='coerce')
+
+# Drop rows with missing values
+df.dropna(subset=['observed_delay', 'Expected_delay'], inplace=True)
+
+# --- Step 1: Kalman Filter Estimation ---
+kf = KalmanFilter(initial_state_mean=0, n_dim_obs=1)
+kf = kf.em(df['observed_delay'], n_iter=10)
+
+# Estimate the observed delays using Kalman filter
+(filtered_state_means, _) = kf.filter(df['observed_delay'].values)
+df['kalman_estimated_delay'] = filtered_state_means
+
+# --- Step 2: LSTM Model for E2E Delay Prediction ---
+# Preparing the data for LSTM model
+scaler = MinMaxScaler(feature_range=(0, 1))
+scaled_data = scaler.fit_transform(df['observed_delay'].values.reshape(-1, 1))
+
+# Create a dataset suitable for LSTM input
+def create_dataset(data, time_step=1):
+    X, y = [], []
+    for i in range(len(data) - time_step - 1):
+        X.append(data[i:(i + time_step), 0])
+        y.append(data[i + time_step, 0])
+    return np.array(X), np.array(y)
+
+time_step = 10
+X, y = create_dataset(scaled_data, time_step)
+
+# Reshaping the input for LSTM [samples, time_steps, features]
+X = X.reshape(X.shape[0], X.shape[1], 1)
+
+# Building the LSTM model
+model = Sequential()
+model.add(LSTM(units=50, return_sequences=False, input_shape=(time_step, 1)))
+model.add(Dense(units=1))
+model.compile(optimizer='adam', loss='mean_squared_error')
+
+# Train the LSTM model
+model.fit(X, y, epochs=20, batch_size=32)
+
+# Predict the E2E delay using the trained LSTM model
+predicted_delay = model.predict(X)
+predicted_delay = scaler.inverse_transform(predicted_delay)
+
+# Adding the predicted delay to the DataFrame
+df['lstm_estimated_delay'] = np.nan
+df.loc[time_step + 1:, 'lstm_estimated_delay'] = predicted_delay.flatten()
+
+# --- Step 3: Calculate the Z-Score and Trust ---
+# Calculate the "z" column based on the formula for Kalman filter and LSTM
+df['z_kalman'] = (df['observed_delay'] - df['kalman_estimated_delay'] - mean) / std 
+df['z_lstm'] = (df['observed_delay'] - df['lstm_estimated_delay'] - mean) / std
+# mean and standard deviation (std) of attack_delay, attack_delay = observed_delay - estimated_delay
+
+# Function to calculate the trust (T) using the given equation
+def calculate_trust(z):
+    integrand = lambda x: np.exp(-x**2)
+    result, _ = quad(integrand, -np.inf, z)
+    return 1 - (1 / (np.sqrt(2 * np.pi))) * result
+
+# Initialize an empty list to store the trust calculation times
+calculation_times = []
+
+# Calculate the trust values using the "z" values and record the time taken
+trust_values_kalman = []
+trust_values_lstm = []
+
+for z_kalman, z_lstm in zip(df['z_kalman'], df['z_lstm']):
+    start_time = time.perf_counter()  # Start the precise timer
+    trust_value_kalman = calculate_trust(z_kalman)
+    trust_value_lstm = calculate_trust(z_lstm)
+    end_time = time.perf_counter()    # End the precise timer
+    calculation_time = end_time - start_time  # Calculate the elapsed time
+    
+    trust_values_kalman.append(trust_value_kalman)  # Append Kalman trust value
+    trust_values_lstm.append(trust_value_lstm)      # Append LSTM trust value
+    calculation_times.append(calculation_time)      # Append the calculation time
+
+# Add the trust values and calculation times as new columns in the DataFrame
+df['trust_kalman'] = trust_values_kalman
+df['trust_lstm'] = trust_values_lstm
+df['calculation_time'] = calculation_times
+
+# Save the updated DataFrame to the same CSV file with the new "trust" and "calculation_time" columns
+output_file_path = 'e2e_delay_trust_estimation.csv'  # Replace with your desired output file path
+df.to_csv(output_file_path, index=False)
+
+# Display the updated DataFrame
+print(df)
+
