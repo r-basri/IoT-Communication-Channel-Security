@@ -1,0 +1,49 @@
+import psycopg2
+import paho.mqtt.client as mqtt
+import json
+
+# Database connection
+conn = psycopg2.connect(
+    dbname="sensor_data",  # Database name
+    user="your_username",  # Database username
+    password="your_password",  # Database password
+    host="localhost",  # Database host
+    port="5432"  # Database port (PostgreSQL default)
+)
+cursor = conn.cursor()
+
+# MQTT broker details
+BROKER = "your_broker_ip"  # IP address of the MQTT broker
+PORT = 1883  # Default MQTT port
+TOPIC = "sensor_data"  # Topic to subscribe to for receiving sensor data
+
+# Callback for receiving MQTT messages
+def on_message(client, userdata, msg):
+    try:
+        payload = json.loads(msg.payload.decode())  # Decode the incoming message
+        node_id = payload.get("node_id")  # Node ID from payload
+        temperature = payload.get("temperature")  # Temperature value
+        tds = payload.get("tds")  # TDS value
+        sensor_timestamp = payload.get("sensor_timestamp")  # Sensor timestamp
+        server_timestamp = payload.get("server_timestamp")  # Server timestamp
+
+        # Insert data into PostgreSQL database
+        query = """
+            INSERT INTO sensor_readings (node_id, temperature, tds, sensor_timestamp, server_timestamp)
+            VALUES (%s, %s, %s, to_timestamp(%s, 'YYYY-MM-DD HH24:MI:SS'), to_timestamp(%s, 'YYYY-MM-DD HH24:MI:SS'))
+        """
+        cursor.execute(query, (node_id, temperature, tds, sensor_timestamp, server_timestamp))
+        conn.commit()
+        print(f"Inserted data: Node ID: {node_id}, Temperature: {temperature}, TDS: {tds}, Sensor Timestamp: {sensor_timestamp}, Server Timestamp: {server_timestamp}")
+    except Exception as e:
+        print(f"Error processing message: {e}")
+
+# MQTT Client Setup
+client = mqtt.Client()
+client.on_message = on_message
+client.connect(BROKER, PORT)  # Connect to the broker
+client.subscribe(TOPIC)  # Subscribe to the sensor data topic
+
+# Start MQTT loop
+print(f"Listening for MQTT messages on topic: {TOPIC}")
+client.loop_forever()  # Keep the loop running to listen for incoming messages

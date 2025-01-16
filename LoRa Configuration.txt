@@ -1,0 +1,150 @@
+/*
+ * This program was written by Rabeya Basri for LoRa communication in a sensor network.
+ * It uses the following open-source libraries:
+ * - MKRWAN by Arduino
+ * - RTClib by Adafruit
+ * - ArduinoJson by Benoit Blanchon
+ * 
+ * Please refer to the respective documentation of these libraries for licensing and usage details.
+ */
+
+
+#include <MKRWAN.h>
+#include <Wire.h>
+#include <RTClib.h>
+#include <ArduinoJson.h>
+
+// Pin Definitions
+#define TEMP_SENSOR_PIN 5        // Temperature sensor pin (generalized)
+#define TDS_SENSOR_PIN A1        // TDS sensor pin (generalized)
+#define BAUD_RATE 115200         // Serial communication baud rate
+#define LORA_SLEEP_TIME 120000   // 2 minutes of sleep
+
+// LoRaWAN Credentials (Replace with actual values)
+String devEui = "PUT_YOUR_DEV_EUI"; // Device EUI 
+String appEui = "PUT_YOUR_APP_EUI"; // Application EUI
+String appKey = "PUT_YOUR_APP_KEY"; // Application Key
+
+// MKRWAN 1300/1310 First Configuration and MKRWAN Lora Send and Receive: https://docs.arduino.cc/tutorials/mkr-wan-1310/mkr-wan-library-examples/
+
+// LoRa Modem Instance
+LoRaModem modem;
+
+// RTC Instance
+RTC_DS3231 rtc;
+
+// MQTT Topic
+String mqttTopic = "sensor_data";
+
+// Function to Join LoRaWAN using OTAA
+bool joinLoRaWAN() {
+  Serial.println("Joining LoRaWAN network...");
+  modem.beginPacket();
+  modem.setDevEUI(devEui);  // Set Device EUI
+  modem.setAppEUI(appEui);  // Set Application EUI
+  modem.setAppKey(appKey);  // Set Application Key
+
+  if (modem.joinOTAA(appEui, appKey)) {
+    Serial.println("Successfully joined LoRaWAN network");
+    return true;
+  } else {
+    Serial.println("LoRaWAN join failed. Retrying...");
+    return false;
+  }
+}
+
+// Read Temperature from Generic Sensor (Generalized reading logic)
+float readTemperature() {
+  // Replace with the actual temperature sensor reading logic
+  // For example, if using an analog temperature sensor:
+  int rawValue = analogRead(TEMP_SENSOR_PIN);
+  float voltage = (rawValue / 1023.0) * 5.0; // Assuming a 5V reference
+  float temperature = (voltage - 0.5) * 100.0; // Example formula (adjust as needed)
+  return temperature;
+}
+
+// Read TDS Sensor Data (Generalized reading logic)
+float readTDS() {
+  // Replace with actual TDS sensor reading logic
+  // For example, using an analog sensor:
+  int sensorValue = analogRead(TDS_SENSOR_PIN);
+  float voltage = sensorValue * (5.0 / 1023.0); // Convert ADC to voltage
+  float tds = (voltage / 5.0) * 1000.0;         // Example calculation
+  return tds;
+}
+
+// Prepare MQTT Payload with Timestamps
+String preparePayload(float temperature, float tds) {
+  DateTime now = rtc.now(); // Get current time from RTC
+
+  StaticJsonDocument<200> jsonDoc;
+  jsonDoc["node_id"] = "Node_1"; // Unique identifier for the node
+  jsonDoc["temperature"] = temperature;
+  jsonDoc["tds"] = tds;
+  
+  // Add sensor and server timestamps (from RTC)
+  jsonDoc["sensor_timestamp"] = String(now.year()) + "-" + String(now.month()) + "-" + String(now.day()) + " " +
+                                String(now.hour()) + ":" + String(now.minute()) + ":" + String(now.second());
+  jsonDoc["server_timestamp"] = String(now.year()) + "-" + String(now.month()) + "-" + String(now.day()) + " " +
+                                String(now.hour()) + ":" + String(now.minute()) + ":" + String(now.second());
+
+  String payload;
+  serializeJson(jsonDoc, payload);
+  return payload;
+}
+
+// Send Data to LoRaWAN
+void sendLoRaData(String payload) {
+  int err = modem.sendString(payload);
+  if (err > 0) {
+    Serial.println("Data sent successfully");
+  } else {
+    Serial.print("Failed to send data. Error code: ");
+    Serial.println(err);
+  }
+}
+
+void setup() {
+  Serial.begin(BAUD_RATE);
+  while (!Serial);
+
+  // Initialize RTC
+  if (!rtc.begin()) {
+    Serial.println("Couldn't find RTC");
+    while (1);
+  }
+
+  // Initialize LoRa modem
+  if (!modem.begin(AS923)) {
+    Serial.println("Failed to initialize LoRa module");
+    while (1);
+  }
+  Serial.println("LoRa module initialized");
+
+  // Configure LoRa settings
+  modem.setADR(false);
+  modem.dataRate(5);           // DR 5
+  modem.spreadingFactor(9);    // SF 9
+
+  // Join LoRaWAN network
+  while (!joinLoRaWAN()) {
+    delay(5000); // Retry every 5 seconds
+  }
+}
+
+void loop() {
+  // Read sensor data
+  float temperature = readTemperature();
+  float tds = readTDS();
+
+  // Prepare MQTT payload as JSON
+  String payload = preparePayload(temperature, tds);
+  Serial.print("Payload: ");
+  Serial.println(payload);
+
+  // Send payload via LoRaWAN
+  sendLoRaData(payload);
+
+  // Sleep for 2 minutes
+  delay(LORA_SLEEP_TIME);
+}
