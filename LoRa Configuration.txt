@@ -1,7 +1,7 @@
 /*
  * This program is part of [IoT-Communication-Channel-Security].
  * It was written by Rabeya Basri for LoRa communication in a sensor network.
- * **Credits**: It uses code that was originally written by **[Mohammad Mahabub Alam]** for **[wqm101]**
+ * **Credits**: It follows code as a base that was originally written by **[Mohammad Mahabub Alam]** for **[wqm101]**
 
  * It uses the following open-source libraries:
  * - MKRWAN by Arduino
