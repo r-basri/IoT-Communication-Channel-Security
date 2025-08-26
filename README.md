@@ -1,4 +1,5 @@
-# IoT-Communication-Channel-Security
+# IoT-Communication-Channel-Security (Publication Link for Citation: https://www.sciencedirect.com/science/article/pii/S0167739X25000093)
+# IoT Lab Development Research Team: Mohammad Mahabub Alam, Rabeya Basri, Prof. Gour Karmakar
 
 ## Overview
 This repository introduces a new conceptual model named **IPCTCM (Instantaneous Trust Calculation Model)** for detecting **Man-in-the-Middle (MITM) attacks** in IoT communication networks. **IPCTCM** leverages the **end-to-end (E2E) delay** induced by active MITM attacks as a key characteristic for instantaneous trust calculation of IoT communication channels. Since active MITM attacks often incur noticeable delays, monitoring and analyzing E2E delay provides an effective approach for accurate and spontaneous detection.
