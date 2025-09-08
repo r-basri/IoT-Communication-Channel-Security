@@ -1,3 +1,4 @@
+# IoT Lab Development Research Team: Mohammad Mahabub Alam, Rabeya Basri, Prof. Gour Karmakar
 /*
  * This program is part of [IoT-Communication-Channel-Security].
  * It was written by Rabeya Basri for LoRa communication in a sensor network.
@@ -163,3 +164,4 @@ void loop() {
   // Sleep for 50 milliseconds
   delay(LORA_SLEEP_TIME);
 }
+
