@@ -1,6 +1,6 @@
 /*
  * This program is part of [IoT-Communication-Channel-Security].
- * It was written by Rabeya Basri for collecting stored data in PostgreSQl database.
+ * It was written by Rabeya Basri for collecting and storing data in PostgreSQl database.
 */
 
 import psycopg2
@@ -52,5 +52,6 @@ client.subscribe(TOPIC)  # Subscribe to the sensor data topic
 # Start MQTT loop
 print(f"Listening for MQTT messages on topic: {TOPIC}")
 client.loop_forever()  # Keep the loop running to listen for incoming messages
+
 
 
